@@ -1,0 +1,223 @@
+using System;
+
+public interface IEstrategiaPuntos
+{
+    int CalcularPuntos(int comprasDolares, int comprasEspeciales);
+}
+
+public interface IEstrategiaPenalizacion
+{
+    void AplicarPenalizacion(double saldo);
+}
+
+public class PuntosNormal : IEstrategiaPuntos
+{
+    public int CalcularPuntos(int comprasDolares, int comprasEspeciales)
+    {
+        return comprasDolares + comprasEspeciales; // 1 punto por cada compra
+    }
+}
+
+public class PuntosDobleRestaurantes : IEstrategiaPuntos
+{
+    public int CalcularPuntos(int comprasDolares, int comprasEspeciales)
+    {
+        // Doble puntos para compras en restaurantes (p.ej. las compras especiales son restaurantes)
+        return (comprasDolares + 2 * comprasEspeciales);
+    }
+}
+
+public class PenalizacionNormal : IEstrategiaPenalizacion
+{
+    public void AplicarPenalizacion(double saldo)
+    {
+        double penalizacionTotal = 0.05 * saldo; // Penalización estándar de 5%
+        saldo += penalizacionTotal;
+        Console.WriteLine($"Se ha aplicado una penalización de: ${penalizacionTotal}. Nuevo saldo: ${saldo}");
+    }
+}
+
+public class PenalizacionAumentada : IEstrategiaPenalizacion
+{
+    public void AplicarPenalizacion(double saldo)
+    {
+        double penalizacionTotal = 0.10 * saldo; // Penalización más alta del 10%
+        saldo += penalizacionTotal;
+        Console.WriteLine($"Se ha aplicado una penalización aumentada de: ${penalizacionTotal}. Nuevo saldo: ${saldo}");
+    }
+}
+
+public abstract class Tarjeta
+{
+    public abstract double LimiteCredito { get; }
+    public abstract double TasaInteres { get; }
+    public abstract double MontoMinimoPago { get; }
+
+    public double Saldo { get; set; } = 250000;
+    public double SaldoPendiente { get; set; }
+
+    // Añadimos los campos para las estrategias
+    public IEstrategiaPuntos EstrategiaPuntos { get; set; }
+    public IEstrategiaPenalizacion EstrategiaPenalizacion { get; set; }
+
+    public void ControlLimite(double gastos)
+    {
+        if (gastos > LimiteCredito)
+        {
+            Console.WriteLine($"Tu compra de ${gastos} excede el límite de tu tarjeta.");
+        }
+        else
+        {
+            Console.WriteLine("Compra autorizada.");
+        }
+    }
+
+    public double CalcularIntereses(double pago)
+    {
+        double saldoAPagar = Saldo - pago;
+        return saldoAPagar * TasaInteres;
+    }
+
+    public int CalcularPuntos(int comprasDolares, int comprasEspeciales)
+    {
+        return EstrategiaPuntos.CalcularPuntos(comprasDolares, comprasEspeciales);
+    }
+
+    public void ProcesarPago(double pago)
+    {
+        if (pago < MontoMinimoPago)
+        {
+            Console.WriteLine($"El pago debe ser al menos ${MontoMinimoPago}. Se aplicará una penalización.");
+            AplicarPenalizacion();
+        }
+
+        double intereses = CalcularIntereses(pago);
+        SaldoPendiente = Saldo - pago - intereses;
+
+        if (SaldoPendiente < 0)
+        {
+            SaldoPendiente = 0;
+        }
+
+        Saldo = SaldoPendiente;
+        Console.WriteLine($"Pago procesado. Saldo restante: ${SaldoPendiente}, Intereses generados: ${intereses}");
+    }
+
+    private void AplicarPenalizacion()
+    {
+        EstrategiaPenalizacion.AplicarPenalizacion(Saldo);
+    }
+}
+
+public class TarjetaPremier : Tarjeta
+{
+    public override double LimiteCredito => 500000;
+    public override double TasaInteres => 0.50;
+    public override double MontoMinimoPago => 5000;
+
+    public TarjetaPremier()
+    {
+        // Definimos las estrategias específicas para la tarjeta Premier
+        EstrategiaPuntos = new PuntosNormal(); // Ejemplo, se puede cambiar por otra estrategia
+        EstrategiaPenalizacion = new PenalizacionNormal();
+    }
+}
+
+public class TarjetaSelect : Tarjeta
+{
+    public override double LimiteCredito => 1000000;
+    public override double TasaInteres => 0.40;
+    public override double MontoMinimoPago => 7000;
+
+    public TarjetaSelect()
+    {
+        // Definimos las estrategias específicas para la tarjeta Select
+        EstrategiaPuntos = new PuntosDobleRestaurantes(); // Ejemplo de cambio en la acumulación de puntos
+        EstrategiaPenalizacion = new PenalizacionAumentada(); // Ejemplo de penalización aumentada
+    }
+}
+
+public class TarjetaBlack : Tarjeta
+{
+    public override double LimiteCredito => 1500000;
+    public override double TasaInteres => 0.30;
+    public override double MontoMinimoPago => 10000;
+
+    public TarjetaBlack()
+    {
+        // Estrategias para la tarjeta Black
+        EstrategiaPuntos = new PuntosNormal(); // Normal
+        EstrategiaPenalizacion = new PenalizacionNormal(); // Normal
+    }
+}
+
+public class Programa
+{
+    static void Main(string[] args)
+    {
+        Tarjeta tarjeta = ObtenerTarjeta();
+        double gastos = ObtenerGastos();
+
+        tarjeta.ControlLimite(gastos);
+
+        double pago = ObtenerPago();
+        tarjeta.ProcesarPago(pago);
+
+        int puntosDolares = ObtenerComprasDolares();
+        int puntosEspeciales = ObtenerComprasEspeciales();
+        int puntosTotales = tarjeta.CalcularPuntos(puntosDolares, puntosEspeciales);
+        Console.WriteLine($"Puntos acumulados: {puntosTotales}");
+    }
+
+    static Tarjeta ObtenerTarjeta()
+    {
+        Console.WriteLine("Selecciona tu tipo de tarjeta:");
+        Console.WriteLine("1 - Premier");
+        Console.WriteLine("2 - Select");
+        Console.WriteLine("3 - Black");
+
+        int tipoTarjeta = Convert.ToInt32(Console.ReadLine());
+        Tarjeta tarjeta;
+
+        switch (tipoTarjeta)
+        {
+            case 1:
+                tarjeta = new TarjetaPremier();
+                break;
+            case 2:
+                tarjeta = new TarjetaSelect();
+                break;
+            case 3:
+                tarjeta = new TarjetaBlack();
+                break;
+            default:
+                throw new Exception("Tipo de tarjeta no válido.");
+        }
+
+        return tarjeta;
+    }
+
+    static double ObtenerGastos()
+    {
+        Console.Write("Ingresa el monto de lo que deseas comprar: $");
+        return Convert.ToDouble(Console.ReadLine());
+    }
+
+    static double ObtenerPago()
+    {
+        Console.Write("Ingresa el monto a abonar de la deuda: $");
+        return Convert.ToDouble(Console.ReadLine());
+    }
+
+    static int ObtenerComprasDolares()
+    {
+        Console.Write("Ingresa la cantidad de dólares a comprar: ");
+        return Convert.ToInt32(Console.ReadLine());
+    }
+
+    static int ObtenerComprasEspeciales()
+    {
+        Console.Write("Ingresa la cantidad de compras especiales: ");
+        return Convert.ToInt32(Console.ReadLine());
+    }
+}
